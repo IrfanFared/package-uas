@@ -68,32 +68,62 @@ async def health_check():
         "timestamp": datetime.now().isoformat()
     }
 
-@app.get("/api/acad/mahasiswa")
-async def get_mahasiswas():
+# ... (kode impor di atas tetap sama) ...
+
+# Tambahkan endpoint ini di bawah @app.get("/api/acad/mahasiswa")
+
+@app.get("/api/acad/nilai/{nim}")
+async def get_ips_mahasiswa(nim: str):
     try:
         with get_db_connection() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
             
-            query = "SELECT * FROM mahasiswa"
-
-            cursor.execute(query)
+            # Query untuk mengambil MK yang diambil mahasiswa, SKS, dan Bobot Nilainya
+            query = """
+            SELECT 
+                m.nama_mk,
+                m.sks,
+                k.nilai as nilai_huruf,
+                b.bobot as nilai_angka
+            FROM krs k
+            JOIN mata_kuliah m ON k.kode_mk = m.kode_mk
+            JOIN bobot_nilai b ON k.nilai = b.nilai
+            WHERE k.nim = %s
+            """
+            
+            cursor.execute(query, (nim,))
             rows = cursor.fetchall()
-
-            return [{"nim": row[0], "nama": row[1], "jurusan": row[2], "angkatan": row[3]} for row in rows]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
-# @app.get("/api/acad/nilai")
-# async def get_nilai():
-#     try:
-#         with get_db_connection() as conn:
-#             cursor = conn.cursor()
             
-#             query = "SELECT * FROM mahasiswa"
+            if not rows:
+                raise HTTPException(status_code=404, detail="Data nilai mahasiswa tidak ditemukan")
 
-#             cursor.execute(query)
-#             rows = cursor.fetchall()
+            # Logika perhitungan IPS
+            total_sks = 0
+            total_poin = 0
+            
+            detail_nilai = []
 
-#             return [{"nim": row[0], "nama": row[1], "jurusan": row[2], "angkatan": row[3]} for row in rows]
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
+            for row in rows:
+                sks = row['sks']
+                bobot = row['nilai_angka']
+                
+                total_sks += sks
+                total_poin += (sks * bobot)
+                
+                detail_nilai.append(row)
+
+            # Menghindari pembagian dengan nol
+            ips = total_poin / total_sks if total_sks > 0 else 0.0
+
+            return {
+                "nim": nim,
+                "total_sks": total_sks,
+                "ips": round(ips, 2), # Pembulatan 2 desimal
+                "detail_transkrip": detail_nilai
+            }
+            
+    except Exception as e:
+        # Jika error bukan HTTPException, raise sebagai 500
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=str(e))
