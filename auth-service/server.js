@@ -29,7 +29,7 @@ mongoose.connect(MONGO_URI)
   .catch(err => console.error('Auth Service: MongoDB connection error:', err));
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/api/auth/health', (req, res) => {
   res.json({ status: 'Auth Service is running', timestamp: new Date() });
 });
 

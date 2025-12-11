@@ -25,12 +25,15 @@ services:
       - NODE_ENV=development
       - PORT=3001
       - MONGO_URI=mongodb://auth-db:27017/auth
-      - JWT_SECRET=rahasia123
+      - JWT_SECRET=7bd6870006667c218262fea72b025a6c
     deploy:
       resources:
         limits:
           cpus: '0.5'
           memory: 512M
+    volumes:
+      - ./auth-service:/app
+      - /app/node_modules
     depends_on:
       - auth-db
     networks:

@@ -1,3 +1,5 @@
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, status
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -71,9 +73,23 @@ async def health_check():
 # ... (kode impor di atas tetap sama) ...
 
 # Tambahkan endpoint ini di bawah @app.get("/api/acad/mahasiswa")
+security = HTTPBearer()
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    # Di microservice real, kita decode tokennya. 
+    # Untuk UAS ini, minimal kita cek apakah token ada/terkirim.
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return token
+
 
 @app.get("/api/acad/nilai/{nim}")
-async def get_ips_mahasiswa(nim: str):
+async def get_ips_mahasiswa(nim: str, token: str = Depends(verify_token)):
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor(cursor_factory=RealDictCursor)
