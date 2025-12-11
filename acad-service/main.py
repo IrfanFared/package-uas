@@ -1,3 +1,4 @@
+import requests
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import Depends, status
 from fastapi import FastAPI, HTTPException, Query
@@ -77,16 +78,39 @@ security = HTTPBearer()
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
-    # Di microservice real, kita decode tokennya. 
-    # Untuk UAS ini, minimal kita cek apakah token ada/terkirim.
+    
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
+            detail="Token missing",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return token
 
+    # --- LOGIKA BARU: Validasi ke Auth Service ---
+    try:
+        # Kita tembak endpoint verify milik auth-service
+        # Hostname 'auth-service' dikenali karena mereka satu jaringan di docker-compose
+        response = requests.post(
+            "http://auth-service:3001/api/auth/verify",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        
+        if response.status_code != 200:
+             raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token invalid or expired",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            
+    except requests.exceptions.RequestException as e:
+        # Handle jika auth-service mati atau tidak bisa dihubungi
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Auth Service unreachable: {str(e)}"
+        )
+    # ---------------------------------------------
+
+    return token
 
 @app.get("/api/acad/nilai/{nim}")
 async def get_ips_mahasiswa(nim: str, token: str = Depends(verify_token)):
