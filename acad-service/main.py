@@ -71,9 +71,7 @@ async def health_check():
         "timestamp": datetime.now().isoformat()
     }
 
-# ... (kode impor di atas tetap sama) ...
 
-# Tambahkan endpoint ini di bawah @app.get("/api/acad/mahasiswa")
 security = HTTPBearer()
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -86,10 +84,8 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # --- LOGIKA BARU: Validasi ke Auth Service ---
     try:
-        # Kita tembak endpoint verify milik auth-service
-        # Hostname 'auth-service' dikenali karena mereka satu jaringan di docker-compose
+        
         response = requests.post(
             "http://auth-service:3001/api/auth/verify",
             headers={"Authorization": f"Bearer {token}"}
@@ -103,12 +99,12 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
             )
             
     except requests.exceptions.RequestException as e:
-        # Handle jika auth-service mati atau tidak bisa dihubungi
+ 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Auth Service unreachable: {str(e)}"
         )
-    # ---------------------------------------------
+    
 
     return token
 
@@ -137,7 +133,7 @@ async def get_ips_mahasiswa(nim: str, token: str = Depends(verify_token)):
             if not rows:
                 raise HTTPException(status_code=404, detail="Data nilai mahasiswa tidak ditemukan")
 
-            # Logika perhitungan IPS
+            
             total_sks = 0
             total_poin = 0
             
@@ -152,7 +148,7 @@ async def get_ips_mahasiswa(nim: str, token: str = Depends(verify_token)):
                 
                 detail_nilai.append(row)
 
-            # Menghindari pembagian dengan nol
+           
             ips = total_poin / total_sks if total_sks > 0 else 0.0
 
             return {
@@ -163,7 +159,7 @@ async def get_ips_mahasiswa(nim: str, token: str = Depends(verify_token)):
             }
             
     except Exception as e:
-        # Jika error bukan HTTPException, raise sebagai 500
+        
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=str(e))
